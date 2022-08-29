@@ -1,11 +1,12 @@
 {
   "name": "@dfyu/sound",
-  "version": "1.0.6",
+  "version": "1.0.9",
   "description": "",
   "author": "dafu yu",
   "bin": {
     "sound": "./index.js"
   },
+  "main": "./sound.js",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/RicholeYu/dfyu/sound/issues"
