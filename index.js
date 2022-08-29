@@ -1,42 +1,66 @@
 #!/usr/bin/env node
 const arg = require('arg')
 const http = require('http')
-const childProcess = require('child_process')
+const { writeFileSync, unlinkSync } = require('fs');
+const path = require('path')
+const player = require('play-sound')(opts = {})
+
 let args = null
 try {
-    args = arg({
-        '--s': Boolean,
-        '--uk': Boolean,
-        '--en': Boolean,
-        '--us': Boolean
-    });
+  args = arg({
+    '-s': Boolean,
+    '--uk': Boolean,
+    '--us': Boolean
+  });
 } catch (err) {
-    console.log(err.message);
-    process.exit(0)
+  console.log(err.message);
+  process.exit(0)
 }
 
 const isSentence = !!args['--s']
 const isUK = !!args['--uk']
 const words = args['_']
+
 if (args && words.length > 0) {
-    if (isSentence) {
-        getSound(words.concat('%20'))
-    } else {
-        words.map(word => getSound(word))
-    }
+  if (isSentence) {
+    getSound(words.concat('%20'))
+  } else {
+    (async () => {
+      for await (let word of words) {
+        await getSound(word)
+      }
+    })();
+  }
+} else {
+  console.log("请输入待朗读的英文单词, 也可以输入多个单词分开朗读，若是朗读完整句子加上参数 -s")
+  console.log("例如: sound hello")
+  console.log("例如: sound hello world")
+  console.log("例如: sound -s \"hello world\"")
+  console.log("例如: sound -s \"hello world\" --uk")
+  console.log("例如: sound -s \"hello world\" --us")
 }
 
-function getSound (string) {
+function getSound(string) {
+  return new Promise(resolve => {
     let temp = Buffer.from([])
     http.get(
-        new URL(`http://dict.youdao.com/dictvoice?audio=${string}&type=${isUK ? 1 : 2}`),
-        res => {
+      new URL(`http://dict.youdao.com/dictvoice?audio=${string}&type=${isUK ? 1 : 2}`),
+      res => {
         res.on('data', res => temp = Buffer.concat([temp, res], temp.length + res.length))
         res.on('end', () => {
-            let subprocess = childProcess.spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
-                `data:audio/mpeg;base64,${temp.toString('base64')}`
-            ])
-            subprocess.unref()
+          const filepath = path.join(__dirname, './tmp.mp3')
+          writeFileSync(filepath, temp)
+
+          player.play(filepath, function (err) {
+            unlinkSync(filepath)
+            resolve()
+
+            if (err) {
+              throw err
+            }
+          })
         })
-    })
+        res.on('error', resolve)
+      })
+  })
 }
